@@ -9,6 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTimeline();
     initScanner();
     initDissect();
+    initReplay();
+    initEntropy();
+    initTrustGraph();
+    initQuiz();
+    initCompare();
+    initMemoryMap();
+    initReportExport();
+    initThemeToggle();
+    initKeyboardShortcuts();
 });
 
 /* ============================================================
@@ -824,3 +833,617 @@ function animateCount(el, target) {
     }
     tick();
 }
+
+/* ============================================================
+   LIVE ATTACK REPLAY
+   ============================================================ */
+function initReplay() {
+    const playBtn = document.getElementById('replay-play-btn');
+    const resetBtn = document.getElementById('replay-reset-btn');
+    if (!playBtn) return;
+
+    playBtn.addEventListener('click', () => {
+        playBtn.style.display = 'none';
+        resetBtn.style.display = 'inline-block';
+        runReplay();
+    });
+    resetBtn.addEventListener('click', () => {
+        resetBtn.style.display = 'none';
+        playBtn.style.display = 'inline-block';
+        resetReplay();
+    });
+
+    // Build step indicators
+    const steps = ['Craft Cert', 'Send Packet', 'RSA Call', 'GOT Redirect', 'Ed448 Verify', 'ChaCha20', 'system()', 'RCE'];
+    const ind = document.getElementById('replay-steps-indicator');
+    if (ind) {
+        ind.innerHTML = steps.map((s, i) => `<span class="rp-step-dot" data-step="${i}">${i + 1}</span>`).join('');
+    }
+}
+
+function setReplayCaption(step, text) {
+    const stepEl = document.getElementById('replay-caption-step');
+    const textEl = document.getElementById('replay-caption-text');
+    if (stepEl) stepEl.textContent = step ? `Step ${step}` : '';
+    if (textEl) textEl.textContent = text;
+    // Highlight step dot
+    document.querySelectorAll('.rp-step-dot').forEach((d, i) => {
+        d.classList.toggle('active', i < parseInt(step));
+        d.classList.toggle('current', i === parseInt(step) - 1);
+    });
+}
+
+async function runReplay() {
+    const svg = document.getElementById('replay-svg');
+    if (!svg) return;
+    const fill = document.getElementById('replay-progress-fill');
+
+    function setProgress(pct) { if (fill) fill.style.width = pct + '%'; }
+
+    // Step 1: Attacker crafts certificate
+    setProgress(5);
+    setReplayCaption('1', 'Attacker crafts SSH certificate with Ed448-signed payload hidden in RSA modulus (N field)');
+    const pulse = svg.querySelector('.rp-attacker-pulse');
+    if (pulse) { pulse.setAttribute('stroke-width', '3'); pulse.setAttribute('stroke', '#58a6ff'); pulse.style.animation = 'replayPulse 0.8s ease-out 3'; }
+    await sleep(2000);
+
+    // Step 2: Packet travels
+    setProgress(15);
+    setReplayCaption('2', 'SSH connection initiated — crafted certificate sent to target sshd on TCP port 22');
+    const pkt = document.getElementById('rp-packet');
+    if (pkt) {
+        pkt.setAttribute('opacity', '1');
+        pkt.style.transition = 'cx 1.5s ease-in-out';
+        pkt.setAttribute('cx', '498');
+    }
+    await sleep(2000);
+    if (pkt) pkt.setAttribute('opacity', '0');
+
+    // Step 3: sshd calls RSA_public_decrypt
+    setProgress(28);
+    setReplayCaption('3', 'sshd calls RSA_public_decrypt() to verify certificate — enters libcrypto');
+    animateArrow('rp-arrow-sshd-crypto', '#58a6ff', 2);
+    highlightBox('rp-libcrypto', '#a371f7');
+    await sleep(1800);
+
+    // Step 4: GOT redirect to backdoor
+    setProgress(42);
+    setReplayCaption('4', 'GOT table has been patched by IFUNC backdoor — RSA_public_decrypt redirects to liblzma');
+    animateArrow('rp-arrow-crypto-got', '#f85149', 2.5);
+    highlightBox('rp-got', '#f85149');
+    await sleep(1000);
+    animateArrow('rp-arrow-got-lzma', '#f85149', 2.5);
+    highlightBox('rp-liblzma', '#f85149');
+    await sleep(1500);
+
+    // Step 5: Ed448 verify
+    setProgress(56);
+    setReplayCaption('5', 'Backdoor extracts payload from RSA modulus and verifies Ed448 signature — confirms attacker identity');
+    animateArrow('rp-arrow-lzma-ed448', '#3fb950', 2);
+    highlightBox('rp-ed448', '#3fb950');
+    const check = document.getElementById('rp-checkmark');
+    if (check) { check.setAttribute('opacity', '1'); check.style.transition = 'opacity 0.3s'; }
+    await sleep(1800);
+
+    // Step 6: ChaCha20 decrypt
+    setProgress(70);
+    setReplayCaption('6', 'ChaCha20 decrypts the embedded command — only the attacker holds the symmetric key');
+    animateArrow('rp-arrow-ed-chacha', '#d29922', 2);
+    highlightBox('rp-chacha', '#d29922');
+    const key = document.getElementById('rp-key-icon');
+    if (key) { key.setAttribute('opacity', '1'); }
+    await sleep(1800);
+
+    // Step 7: system() call
+    setProgress(85);
+    setReplayCaption('7', 'system() executes attacker command as root — sshd runs with full root privileges');
+    animateArrow('rp-arrow-chacha-sys', '#f85149', 3);
+    highlightBox('rp-system', '#da3633');
+    const explosion = document.getElementById('rp-explosion');
+    if (explosion) {
+        explosion.setAttribute('opacity', '0.6');
+        explosion.style.transition = 'r 0.5s ease-out, opacity 1s';
+        explosion.setAttribute('r', '80');
+        setTimeout(() => explosion.setAttribute('opacity', '0'), 600);
+    }
+    await sleep(2000);
+
+    // Step 8: RCE banner
+    setProgress(100);
+    setReplayCaption('8', 'PRE-AUTH REMOTE CODE EXECUTION AS ROOT — CVE-2024-3094, CVSS 10.0 Critical');
+    const banner = document.getElementById('rp-banner');
+    if (banner) { banner.setAttribute('opacity', '1'); banner.style.transition = 'opacity 0.5s'; }
+}
+
+function animateArrow(id, color, width) {
+    const el = document.getElementById(id);
+    if (el) { el.setAttribute('stroke', color); el.setAttribute('stroke-width', width); }
+}
+
+function highlightBox(id, color) {
+    const el = document.getElementById(id);
+    if (el) { el.setAttribute('stroke', color); el.setAttribute('stroke-width', '2.5'); }
+}
+
+function resetReplay() {
+    ['rp-arrow-sshd-crypto','rp-arrow-crypto-got','rp-arrow-got-lzma','rp-arrow-lzma-ed448','rp-arrow-ed-chacha','rp-arrow-chacha-sys'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.setAttribute('stroke', '#30363d'); el.setAttribute('stroke-width', '0'); }
+    });
+    ['rp-libcrypto','rp-got','rp-liblzma','rp-ed448','rp-chacha','rp-system','rp-libsystemd'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.setAttribute('stroke', '#30363d'); el.setAttribute('stroke-width', '1.5'); }
+    });
+    ['rp-checkmark','rp-key-icon','rp-banner'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('opacity', '0');
+    });
+    const pkt = document.getElementById('rp-packet');
+    if (pkt) { pkt.setAttribute('opacity', '0'); pkt.style.transition = 'none'; pkt.setAttribute('cx', '142'); }
+    const explosion = document.getElementById('rp-explosion');
+    if (explosion) { explosion.setAttribute('r', '0'); explosion.setAttribute('opacity', '0'); }
+    const fill = document.getElementById('replay-progress-fill');
+    if (fill) fill.style.width = '0%';
+    setReplayCaption('', 'Press Play to begin simulation');
+    document.querySelectorAll('.rp-step-dot').forEach(d => { d.classList.remove('active', 'current'); });
+}
+
+/* ============================================================
+   ENTROPY HEATMAP
+   ============================================================ */
+function initEntropy() {
+    const section = document.getElementById('entropy');
+    if (!section) return;
+    // Load on first tab visit
+    let loaded = false;
+    const observer = new MutationObserver(() => {
+        if (section.classList.contains('active') && !loaded) {
+            loaded = true;
+            loadEntropy();
+        }
+    });
+    observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+}
+
+function loadEntropy() {
+    const container = document.getElementById('entropy-container');
+    if (!container) return;
+    container.innerHTML = '<div class="scan-loading" style="display:block"><div class="spinner"></div><p>Computing Shannon entropy...</p></div>';
+
+    fetch('/api/entropy').then(r => r.json()).then(files => {
+        let html = `
+        <div class="entropy-legend glass">
+            <h3>Entropy Scale (bits/byte)</h3>
+            <div class="entropy-scale">
+                <div class="entropy-scale-bar"></div>
+                <div class="entropy-scale-labels">
+                    <span>0.0</span><span>2.0</span><span>4.0</span><span>6.0</span><span>7.0</span><span>8.0</span>
+                </div>
+            </div>
+            <div class="entropy-benchmarks">
+                <span class="eb"><span class="eb-dot" style="background:#3fb950"></span>Normal source: ~4-5 bits</span>
+                <span class="eb"><span class="eb-dot" style="background:#d29922"></span>Compressed data: ~6-7 bits</span>
+                <span class="eb"><span class="eb-dot" style="background:#f85149"></span>Encrypted/random: ~7.5-8 bits</span>
+            </div>
+        </div>
+        <div class="entropy-grid">`;
+
+        files.forEach((f, i) => {
+            const color = entropyColor(f.overall_entropy);
+            const pct = (f.overall_entropy / 8) * 100;
+            const miniBlocks = f.block_entropies.map(e => `<div class="em-block" style="background:${entropyColor(e)}"></div>`).join('');
+            html += `
+            <div class="entropy-card glass" data-idx="${i}" onclick="showEntropyDetail(${i})">
+                <div class="ec-header">
+                    <span class="ec-filename">${escHtml(f.filename)}</span>
+                    <span class="ec-category" style="color:${color}">${f.category}</span>
+                </div>
+                <div class="ec-score" style="color:${color}">${f.overall_entropy.toFixed(2)}</div>
+                <div class="ec-bar-track"><div class="ec-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+                <div class="ec-minimap">${miniBlocks}</div>
+                <div class="ec-size">${f.size} bytes &bull; ${f.block_entropies.length} blocks</div>
+            </div>`;
+        });
+
+        html += '</div><div class="entropy-detail glass" id="entropy-detail" style="display:none"></div>';
+        container.innerHTML = html;
+        window._entropyData = files;
+    });
+}
+
+function entropyColor(e) {
+    if (e < 3) return '#388bfd';
+    if (e < 5) return '#3fb950';
+    if (e < 6.5) return '#d29922';
+    if (e < 7.2) return '#f85149';
+    return '#da3633';
+}
+
+window.showEntropyDetail = function(idx) {
+    const f = window._entropyData[idx];
+    const detail = document.getElementById('entropy-detail');
+    if (!detail || !f) return;
+    detail.style.display = 'block';
+
+    const blocks = f.block_entropies.map((e, i) =>
+        `<div class="ed-cell" style="background:${entropyColor(e)}" title="Block ${i}: ${e.toFixed(3)} bits/byte"></div>`
+    ).join('');
+
+    detail.innerHTML = `
+        <h3>${escHtml(f.filename)} <span style="color:${entropyColor(f.overall_entropy)}">${f.overall_entropy.toFixed(4)} bits/byte</span></h3>
+        <p>${f.size} bytes &bull; ${f.block_entropies.length} blocks of 256 bytes &bull; Category: ${f.category}</p>
+        <h4>Block-level Entropy Heatmap</h4>
+        <div class="ed-heatmap">${blocks}</div>
+        <p class="ed-analysis">${f.overall_entropy > 7.2 ? '&#9888; HIGH ENTROPY — This file has near-maximum entropy, consistent with encrypted or compressed payload data. In the XZ attack, test fixture files with entropy >7.5 were disguised backdoor payloads.' : f.overall_entropy > 6 ? 'Moderate entropy — typical of compressed or structured binary data.' : 'Low-moderate entropy — typical of source code or text files. No anomalies detected.'}</p>
+    `;
+    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+/* ============================================================
+   TRUST GRAPH (Canvas force-directed)
+   ============================================================ */
+function initTrustGraph() {
+    const section = document.getElementById('trust-graph');
+    if (!section) return;
+    let loaded = false;
+    const observer = new MutationObserver(() => {
+        if (section.classList.contains('active') && !loaded) {
+            loaded = true;
+            loadTrustGraph();
+        }
+    });
+    observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+}
+
+let graphData = null;
+let graphNodes = [];
+let graphEdges = [];
+let graphCanvas, graphCtx;
+let graphAnimFrame;
+let replayIdx = 0;
+let replayRunning = false;
+
+function loadTrustGraph() {
+    fetch('/api/trust-graph').then(r => r.json()).then(data => {
+        graphData = data;
+        setupGraph(data);
+    });
+}
+
+function setupGraph(data) {
+    graphCanvas = document.getElementById('trust-graph-canvas');
+    if (!graphCanvas) return;
+    graphCtx = graphCanvas.getContext('2d');
+    const w = graphCanvas.width = graphCanvas.parentElement.clientWidth;
+    const h = graphCanvas.height = 500;
+
+    const typeColors = { attacker: '#f85149', maintainer: '#58a6ff', sockpuppet: '#d29922', scope: '#8b949e' };
+    const phaseColors = { trust_building: '#388bfd', pressure: '#d29922', injection: '#f85149', exploitation: '#da3633', discovery: '#3fb950' };
+
+    // Position nodes
+    graphNodes = data.nodes.map((n, i) => {
+        let x, y;
+        if (n.type === 'attacker') { x = w * 0.15; y = h * 0.5; }
+        else if (n.type === 'maintainer') { x = w * 0.5; y = h * 0.2; }
+        else if (n.type === 'sockpuppet') { x = w * 0.35 + i * 40; y = h * 0.15; }
+        else { x = w * 0.55 + (i % 3) * (w * 0.15); y = h * 0.4 + Math.floor(i / 3) * 100; }
+        return { ...n, x: x + (Math.random() - 0.5) * 30, y: y + (Math.random() - 0.5) * 30, vx: 0, vy: 0, radius: n.type === 'scope' ? 30 : 24, color: typeColors[n.type] || '#8b949e' };
+    });
+
+    graphEdges = data.edges.map(e => ({
+        ...e,
+        sourceNode: graphNodes.find(n => n.id === e.source),
+        targetNode: graphNodes.find(n => n.id === e.target),
+        visible: false,
+        color: phaseColors[e.phase] || '#30363d',
+    }));
+
+    // Simple force simulation
+    for (let iter = 0; iter < 100; iter++) {
+        for (let i = 0; i < graphNodes.length; i++) {
+            for (let j = i + 1; j < graphNodes.length; j++) {
+                const dx = graphNodes[j].x - graphNodes[i].x;
+                const dy = graphNodes[j].y - graphNodes[i].y;
+                const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+                const force = 5000 / (dist * dist);
+                graphNodes[i].vx -= (dx / dist) * force;
+                graphNodes[i].vy -= (dy / dist) * force;
+                graphNodes[j].vx += (dx / dist) * force;
+                graphNodes[j].vy += (dy / dist) * force;
+            }
+        }
+        graphEdges.forEach(e => {
+            if (!e.sourceNode || !e.targetNode) return;
+            const dx = e.targetNode.x - e.sourceNode.x;
+            const dy = e.targetNode.y - e.sourceNode.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const force = (dist - 150) * 0.01;
+            e.sourceNode.vx += (dx / dist) * force;
+            e.sourceNode.vy += (dy / dist) * force;
+            e.targetNode.vx -= (dx / dist) * force;
+            e.targetNode.vy -= (dy / dist) * force;
+        });
+        graphNodes.forEach(n => {
+            n.x += n.vx * 0.3; n.y += n.vy * 0.3;
+            n.vx *= 0.8; n.vy *= 0.8;
+            n.x = Math.max(40, Math.min(w - 40, n.x));
+            n.y = Math.max(40, Math.min(h - 40, n.y));
+        });
+    }
+
+    drawGraph();
+
+    document.getElementById('trust-graph-replay-btn')?.addEventListener('click', () => {
+        replayIdx = 0;
+        replayRunning = true;
+        graphEdges.forEach(e => e.visible = false);
+        drawGraph();
+        replayTick();
+    });
+}
+
+function replayTick() {
+    if (replayIdx >= graphEdges.length) {
+        replayRunning = false;
+        const label = document.getElementById('trust-graph-phase-label');
+        if (label) label.textContent = 'Replay complete';
+        return;
+    }
+    graphEdges[replayIdx].visible = true;
+    const edge = graphEdges[replayIdx];
+    const label = document.getElementById('trust-graph-phase-label');
+    if (label) label.textContent = `${edge.date || ''} — ${edge.label || edge.phase}`;
+    drawGraph();
+    replayIdx++;
+    setTimeout(replayTick, 600);
+}
+
+function drawGraph() {
+    if (!graphCtx) return;
+    const w = graphCanvas.width, h = graphCanvas.height;
+    graphCtx.clearRect(0, 0, w, h);
+
+    // Draw edges
+    graphEdges.forEach(e => {
+        if (!e.visible || !e.sourceNode || !e.targetNode) return;
+        graphCtx.beginPath();
+        graphCtx.moveTo(e.sourceNode.x, e.sourceNode.y);
+        graphCtx.lineTo(e.targetNode.x, e.targetNode.y);
+        graphCtx.strokeStyle = e.color;
+        graphCtx.lineWidth = e.type === 'pressure' ? 2.5 : 1.5;
+        if (e.type === 'pressure') graphCtx.setLineDash([6, 4]);
+        else graphCtx.setLineDash([]);
+        graphCtx.stroke();
+        graphCtx.setLineDash([]);
+    });
+
+    // Draw nodes
+    graphNodes.forEach(n => {
+        graphCtx.beginPath();
+        if (n.type === 'scope') {
+            const r = n.radius;
+            graphCtx.roundRect(n.x - r, n.y - r * 0.7, r * 2, r * 1.4, 6);
+            graphCtx.fillStyle = '#161b22';
+            graphCtx.fill();
+            graphCtx.strokeStyle = n.critical ? '#f85149' : '#30363d';
+            graphCtx.lineWidth = n.critical ? 2 : 1;
+            graphCtx.stroke();
+        } else {
+            graphCtx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+            graphCtx.fillStyle = '#161b22';
+            graphCtx.fill();
+            graphCtx.strokeStyle = n.color;
+            graphCtx.lineWidth = 2;
+            graphCtx.stroke();
+        }
+        graphCtx.fillStyle = n.color;
+        graphCtx.font = 'bold 10px monospace';
+        graphCtx.textAlign = 'center';
+        graphCtx.fillText(n.label, n.x, n.y + 4);
+    });
+}
+
+/* ============================================================
+   QUIZ / CTF MODE
+   ============================================================ */
+const QUIZ_QUESTIONS = [
+    { q: 'How long did Jia Tan spend building trust before injecting malicious code?', o: ['~6 months', '~1 year', '~2 years', '~5 years'], a: 2 },
+    { q: 'Where was the backdoor payload hidden?', o: ['In the git repo', 'In release tarballs only', 'In CI pipelines', 'In npm packages'], a: 1 },
+    { q: 'What mechanism did the backdoor use to hook into sshd?', o: ['LD_PRELOAD', 'ptrace', 'GNU IFUNC resolver', 'Kernel module'], a: 2 },
+    { q: 'Which function was hijacked by the backdoor?', o: ['malloc', 'RSA_public_decrypt', 'strcmp', 'write'], a: 1 },
+    { q: 'What crypto primitives did the backdoor use?', o: ['AES + RSA', 'Ed448 + ChaCha20', 'SHA256 + ECDSA', 'Blowfish + DSA'], a: 1 },
+    { q: 'Who discovered the backdoor?', o: ['Google Project Zero', 'NSA', 'Andres Freund', 'Lasse Collin'], a: 2 },
+    { q: 'What tipped off the discoverer?', o: ['Code review', '500ms SSH login delay', 'Failed tests', 'Antivirus alert'], a: 1 },
+    { q: 'What is the CVSS score of CVE-2024-3094?', o: ['7.5', '8.1', '9.8', '10.0'], a: 3 },
+];
+
+let quizIdx = 0, quizScore = 0;
+
+function initQuiz() {
+    const section = document.getElementById('quiz');
+    if (!section) return;
+    const startBtn = document.getElementById('quiz-start-btn');
+    if (startBtn) startBtn.addEventListener('click', startQuiz);
+}
+
+function startQuiz() {
+    quizIdx = 0; quizScore = 0;
+    document.getElementById('quiz-intro')?.setAttribute('style', 'display:none');
+    document.getElementById('quiz-area')?.setAttribute('style', 'display:block');
+    document.getElementById('quiz-result')?.setAttribute('style', 'display:none');
+    showQuestion();
+}
+
+function showQuestion() {
+    if (quizIdx >= QUIZ_QUESTIONS.length) { showQuizResult(); return; }
+    const q = QUIZ_QUESTIONS[quizIdx];
+    const area = document.getElementById('quiz-area');
+    if (!area) return;
+    const pct = ((quizIdx) / QUIZ_QUESTIONS.length) * 100;
+    area.innerHTML = `
+        <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${pct}%"></div></div>
+        <div class="quiz-counter">Question ${quizIdx + 1} of ${QUIZ_QUESTIONS.length}</div>
+        <div class="quiz-question">${escHtml(q.q)}</div>
+        <div class="quiz-options">
+            ${q.o.map((opt, i) => `<button class="quiz-option" onclick="answerQuiz(${i})">${escHtml(opt)}</button>`).join('')}
+        </div>
+    `;
+}
+
+window.answerQuiz = function(idx) {
+    const q = QUIZ_QUESTIONS[quizIdx];
+    const btns = document.querySelectorAll('.quiz-option');
+    btns.forEach((b, i) => {
+        b.disabled = true;
+        if (i === q.a) b.classList.add('correct');
+        if (i === idx && idx !== q.a) b.classList.add('wrong');
+    });
+    if (idx === q.a) quizScore++;
+    setTimeout(() => { quizIdx++; showQuestion(); }, 1200);
+};
+
+function showQuizResult() {
+    const area = document.getElementById('quiz-area');
+    const result = document.getElementById('quiz-result');
+    if (area) area.style.display = 'none';
+    if (!result) return;
+    result.style.display = 'block';
+    const pct = Math.round((quizScore / QUIZ_QUESTIONS.length) * 100);
+    const grade = pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B' : pct >= 60 ? 'C' : 'F';
+    const gradeColor = pct >= 80 ? '#3fb950' : pct >= 60 ? '#d29922' : '#f85149';
+    result.innerHTML = `
+        <div class="quiz-score-card glass">
+            <div class="quiz-grade" style="color:${gradeColor}">${grade}</div>
+            <div class="quiz-final-score">${quizScore} / ${QUIZ_QUESTIONS.length} correct (${pct}%)</div>
+            <p>${pct >= 80 ? 'Excellent! You have a deep understanding of the XZ backdoor attack.' : pct >= 60 ? 'Good work! Review the Dissect tab to fill in the gaps.' : 'Keep learning! Explore the Attack Flow and Dissect tabs for more details.'}</p>
+            <button class="btn btn-primary" onclick="startQuiz()">Retry</button>
+        </div>
+    `;
+}
+
+/* ============================================================
+   SIDE-BY-SIDE COMPARE
+   ============================================================ */
+function initCompare() {
+    const btn = document.getElementById('compare-btn');
+    if (btn) btn.addEventListener('click', runCompare);
+}
+
+function runCompare() {
+    const container = document.getElementById('compare-results');
+    if (!container) return;
+    container.style.display = 'block';
+    container.innerHTML = '<div class="scan-loading" style="display:block"><div class="spinner"></div><p>Running comparison scan...</p></div>';
+
+    fetch('/api/scan-compare', { method: 'POST' }).then(r => r.json()).then(data => {
+        container.innerHTML = `
+        <div class="compare-grid">
+            <div class="compare-panel clean glass">
+                <div class="compare-header" style="border-color:#3fb950">
+                    <h3 style="color:#3fb950">Clean Project</h3>
+                    <span class="compare-path">${escHtml(data.clean.target_path)}</span>
+                </div>
+                <div class="compare-score" style="color:#3fb950">${data.clean.risk_score.toFixed(1)}<span>/10</span></div>
+                <div class="compare-findings">${data.clean.total_findings} findings</div>
+                ${renderCompareSeverity(data.clean.severity_counts || {})}
+            </div>
+            <div class="compare-vs">VS</div>
+            <div class="compare-panel infected glass">
+                <div class="compare-header" style="border-color:#f85149">
+                    <h3 style="color:#f85149">Infected Samples</h3>
+                    <span class="compare-path">${escHtml(data.infected.target_path)}</span>
+                </div>
+                <div class="compare-score" style="color:#f85149">${data.infected.risk_score.toFixed(1)}<span>/10</span></div>
+                <div class="compare-findings">${data.infected.total_findings} findings</div>
+                ${renderCompareSeverity(data.infected.severity_counts || {})}
+            </div>
+        </div>`;
+    });
+}
+
+function renderCompareSeverity(counts) {
+    return ['critical','high','medium','low','info'].map(sev => {
+        const c = counts[sev] || 0;
+        return c ? `<div class="compare-sev"><span class="sev-badge sev-${sev}">${sev}</span> <span>${c}</span></div>` : '';
+    }).join('');
+}
+
+/* ============================================================
+   MEMORY MAP (added to Dissect tab)
+   ============================================================ */
+function initMemoryMap() {
+    const toggle = document.getElementById('memmap-toggle');
+    if (!toggle) return;
+    let showBackdoor = false;
+    toggle.addEventListener('click', () => {
+        showBackdoor = !showBackdoor;
+        toggle.textContent = showBackdoor ? 'Show Normal Flow' : 'Show Backdoor Flow';
+        document.getElementById('memmap-normal')?.setAttribute('opacity', showBackdoor ? '0' : '1');
+        document.getElementById('memmap-backdoor')?.setAttribute('opacity', showBackdoor ? '1' : '0');
+    });
+}
+
+/* ============================================================
+   REPORT EXPORT
+   ============================================================ */
+function initReportExport() {
+    const btn = document.getElementById('export-report-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (!window._lastScanData) { alert('Run a scan first!'); return; }
+        const data = window._lastScanData;
+        const html = `<!DOCTYPE html><html><head><title>XZ-Bot Scan Report</title>
+        <style>body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:40px;max-width:900px;margin:auto}
+        h1{color:#58a6ff}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{padding:8px 12px;border:1px solid #30363d;text-align:left;font-size:13px}
+        th{background:#161b22;color:#8b949e}.critical{color:#da3633}.high{color:#f85149}.medium{color:#d29922}
+        .score{font-size:48px;font-weight:bold;color:${data.risk_score >= 8 ? '#da3633' : data.risk_score >= 5 ? '#d29922' : '#3fb950'}}</style></head>
+        <body><h1>XZ-Bot Vulnerability Scan Report</h1>
+        <p>Target: ${escHtml(data.target_path)}<br>Time: ${data.timestamp}<br>Findings: ${data.total_findings}</p>
+        <div class="score">${data.risk_score.toFixed(1)}/10</div>
+        <table><tr><th>Severity</th><th>Rule</th><th>Category</th><th>Title</th><th>File</th></tr>
+        ${(data.findings||[]).map(f=>`<tr><td class="${f.severity}">${f.severity}</td><td>${f.rule_id}</td><td>${f.category}</td><td>${f.title}</td><td>${f.file_path?f.file_path.split('/').pop():'-'}</td></tr>`).join('')}
+        </table><p style="color:#8b949e;font-size:11px">Generated by XZ-Bot v1.0.0 | Educational tool only</p></body></html>`;
+        const blob = new Blob([html], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'xz-bot-scan-report.html';
+        a.click();
+    });
+}
+
+/* ============================================================
+   DARK/LIGHT THEME TOGGLE
+   ============================================================ */
+function initThemeToggle() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        document.body.classList.toggle('light-theme');
+        btn.textContent = document.body.classList.contains('light-theme') ? '🌙' : '☀️';
+    });
+}
+
+/* ============================================================
+   KEYBOARD SHORTCUTS
+   ============================================================ */
+function initKeyboardShortcuts() {
+    const tabKeys = { '1': 'attack-flow', '2': 'scanner', '3': 'dissect', '4': 'timeline', '5': 'replay', '6': 'entropy', '7': 'trust-graph', '8': 'quiz' };
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (tabKeys[e.key]) {
+            e.preventDefault();
+            const tab = document.querySelector(`.tab[data-tab="${tabKeys[e.key]}"]`);
+            if (tab) tab.click();
+        }
+        if (e.key === '?') {
+            alert('Keyboard Shortcuts:\\n1-8: Switch tabs\\n?: Show shortcuts');
+        }
+    });
+}
+
+// Store last scan data for export
+const _origRenderScanResults = renderScanResults;
+renderScanResults = function(data) {
+    window._lastScanData = data;
+    _origRenderScanResults(data);
+};
