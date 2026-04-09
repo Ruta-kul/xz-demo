@@ -1,0 +1,108 @@
+Screen {
+    background: $surface;
+}
+
+#welcome-box {
+    width: 70;
+    height: auto;
+    margin: 2 0;
+}
+
+#banner {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#menu {
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+#disclaimer {
+    height: auto;
+    text-align: center;
+}
+
+/* Walkthrough layout */
+#walkthrough-layout {
+    height: 1fr;
+}
+
+#stage-list {
+    width: 35;
+    height: 100%;
+    dock: left;
+    border-right: solid $primary;
+}
+
+#stage-header {
+    height: auto;
+}
+
+#stages {
+    height: 1fr;
+}
+
+#stage-detail {
+    height: 100%;
+    width: 1fr;
+}
+
+#stage-output {
+    height: 1fr;
+    margin: 0 1;
+}
+
+/* Scanner layout */
+#scanner-layout {
+    height: 1fr;
+    padding: 1;
+}
+
+#scanner-title {
+    height: auto;
+}
+
+#scan-controls {
+    height: 3;
+    margin: 1 0;
+}
+
+#scan-path {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#scan-btn {
+    width: 12;
+    margin-right: 1;
+}
+
+#scan-samples-btn {
+    width: 18;
+}
+
+RiskGauge {
+    height: 3;
+    margin: 1 0;
+}
+
+#scan-log {
+    height: 1fr;
+    max-height: 15;
+    margin-bottom: 1;
+}
+
+#findings-table {
+    height: 1fr;
+}
+
+/* Timeline layout */
+#timeline-scroll {
+    padding: 1 4;
+}
+
+#timeline-header {
+    height: auto;
+    margin-bottom: 1;
+}

@@ -1,0 +1,168 @@
+[
+  {
+    "hash": "a1b2c3d",
+    "date": "2021-01-26",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Fix typo in README.md",
+    "files_changed": ["README.md"],
+    "phase": "trust_building",
+    "note": "First contribution - a harmless documentation fix to introduce himself to the project."
+  },
+  {
+    "hash": "b3c4d5e",
+    "date": "2021-03-15",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "tests: add additional test vectors for lzma_check",
+    "files_changed": ["tests/test_check.c"],
+    "phase": "trust_building",
+    "note": "Small, legitimate test contribution building credibility."
+  },
+  {
+    "hash": "c5d6e7f",
+    "date": "2021-09-03",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "liblzma: fix CRC comments and whitespace",
+    "files_changed": ["src/liblzma/check/crc32_fast.c", "src/liblzma/check/crc64_fast.c"],
+    "phase": "trust_building",
+    "note": "Touching CRC code for the first time - still benign cleanups."
+  },
+  {
+    "hash": "d7e8f9a",
+    "date": "2022-02-17",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "CMake: minor cleanup and improvements",
+    "files_changed": ["CMakeLists.txt", "cmake/tuklib_integer.cmake"],
+    "phase": "trust_building",
+    "note": "Beginning to touch build system files - expanding scope gradually."
+  },
+  {
+    "hash": "e9f0a1b",
+    "date": "2022-06-07",
+    "author": "Dennis Ens",
+    "email": "dennis.ens@example.com",
+    "message": "[xz-devel] XZ for Java needs a new maintainer",
+    "files_changed": [],
+    "phase": "trust_building",
+    "note": "Sockpuppet account pressuring Lasse Collin to add a co-maintainer."
+  },
+  {
+    "hash": "f1a2b3c",
+    "date": "2022-06-14",
+    "author": "Jigar Kumar",
+    "email": "jigar.kumar@example.com",
+    "message": "[xz-devel] Re: XZ for Java needs a new maintainer",
+    "files_changed": [],
+    "phase": "trust_building",
+    "note": "Another sockpuppet pressuring maintainer: 'Progress will not happen until there is new maintainer.'"
+  },
+  {
+    "hash": "a3b4c5d",
+    "date": "2022-09-27",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "liblzma: add IFUNC implementation for crc32/crc64",
+    "files_changed": [
+      "src/liblzma/check/crc32_fast.c",
+      "src/liblzma/check/crc64_fast.c",
+      "src/liblzma/check/crc_x86_clmul.h"
+    ],
+    "phase": "trust_building",
+    "note": "CRITICAL: Introduces IFUNC resolvers for CRC functions. This is the mechanism later used for the backdoor hook."
+  },
+  {
+    "hash": "b5c6d7e",
+    "date": "2023-01-11",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Tests: add new test files for decoder",
+    "files_changed": [
+      "tests/files/bad-3-corrupt_lzma2.xz",
+      "tests/files/good-large_compressed.lzma"
+    ],
+    "phase": "injection",
+    "note": "Adding binary test fixtures. These will later be used to hide the obfuscated backdoor payload."
+  },
+  {
+    "hash": "c7d8e9f",
+    "date": "2023-06-27",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Tests: update test framework with new infrastructure",
+    "files_changed": [
+      "tests/files/bad-3-corrupt_lzma2.xz",
+      "CMakeLists.txt"
+    ],
+    "phase": "injection",
+    "note": "Updating test fixtures again - replacing with payloads containing the hidden backdoor object code."
+  },
+  {
+    "hash": "d9e0f1a",
+    "date": "2024-02-15",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "build: update m4/build-to-host.m4",
+    "files_changed": [
+      "m4/build-to-host.m4",
+      "Makefile.am"
+    ],
+    "phase": "injection",
+    "note": "CRITICAL: Modifies the autotools build macro to inject the extraction script during 'make'. This is the primary injection vector."
+  },
+  {
+    "hash": "e1f2a3b",
+    "date": "2024-02-23",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Tests: update tests and test fixtures",
+    "files_changed": [
+      "tests/files/bad-3-corrupt_lzma2.xz",
+      "tests/files/good-large_compressed.lzma"
+    ],
+    "phase": "injection",
+    "note": "Final payload update in the test fixtures before release. The backdoor is now fully staged."
+  },
+  {
+    "hash": "f3a4b5c",
+    "date": "2024-02-24",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Release xz-5.6.0",
+    "files_changed": ["NEWS", "configure.ac", "src/liblzma/api/lzma/version.h"],
+    "phase": "exploitation",
+    "note": "First release containing the backdoor. Distributed to early-adopter distros."
+  },
+  {
+    "hash": "a5b6c7d",
+    "date": "2024-03-09",
+    "author": "Jia Tan",
+    "email": "jiat75@users.noreply.github.com",
+    "message": "Release xz-5.6.1",
+    "files_changed": ["NEWS", "configure.ac", "src/liblzma/api/lzma/version.h"],
+    "phase": "exploitation",
+    "note": "Updated release with refined backdoor. Pushed to Debian, Fedora, and openSUSE testing repos."
+  },
+  {
+    "hash": "b7c8d9e",
+    "date": "2024-03-28",
+    "author": "Andres Freund",
+    "email": "andres@anarazel.de",
+    "message": "[oss-security] backdoor in upstream xz/liblzma leading to SSH server compromise",
+    "files_changed": [],
+    "phase": "discovery",
+    "note": "Microsoft engineer Andres Freund notices 500ms SSH login delay and traces it to the xz backdoor. Reports to oss-security."
+  },
+  {
+    "hash": "c9d0e1f",
+    "date": "2024-03-29",
+    "author": "Lasse Collin",
+    "email": "lasse.collin@tukaani.org",
+    "message": "Revoke Jia Tan's access; begin investigation",
+    "files_changed": [],
+    "phase": "discovery",
+    "note": "Repository access revoked. CVE-2024-3094 assigned. All major distros begin emergency rollbacks."
+  }
+]

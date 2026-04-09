@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xz-bot"
+version = "1.0.0"
+description = "Interactive XZ Backdoor (CVE-2024-3094) Educational Demo & Agentic AI Vulnerability Scanner"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+    "textual>=0.50",
+    "flask>=3.0",
+]
+
+[project.scripts]
+xz-bot = "xz_bot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
