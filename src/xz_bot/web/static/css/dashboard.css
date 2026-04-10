@@ -1658,6 +1658,72 @@ body.light-theme .findings-table td { border-color: #d0d7de; color: #1f2328; }
 }
 .quiz-option:disabled { cursor: default; opacity: 0.8; }
 
+/* Code analysis question type */
+.quiz-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--purple-dim);
+    color: var(--purple);
+    font-size: 10px;
+    letter-spacing: 2px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-weight: bold;
+}
+.quiz-options-code {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.quiz-option-code {
+    padding: 0 !important;
+    overflow: hidden;
+}
+.quiz-code {
+    padding: 14px 16px;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    text-align: left;
+    color: var(--text);
+}
+.quiz-option-code.correct .quiz-code { color: var(--green); }
+.quiz-option-code.wrong .quiz-code { color: var(--red); }
+
+.quiz-explain {
+    margin-top: 16px;
+    animation: fadeIn 0.3s ease;
+}
+.quiz-explain-inner {
+    padding: 16px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.quiz-explain-inner strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+.quiz-explain-inner p { margin: 0; color: var(--text-dim); }
+.explain-correct {
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+}
+.explain-correct strong { color: var(--green); }
+.explain-wrong {
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+}
+.explain-wrong strong { color: var(--red); }
+
+@media (max-width: 768px) {
+    .quiz-options-code { grid-template-columns: 1fr; }
+}
+
 .quiz-score-card {
     max-width: 400px;
     margin: 40px auto;
